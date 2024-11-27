@@ -1,7 +1,3 @@
-# Blender 4.2.3 LTS
-# www.blender.org
-mtllib building.mtl
-o Cube
 v -9.465599 -2.804032 9.465599
 v -9.465599 1.204034 9.465599
 v -10.222849 1.121748 10.222849

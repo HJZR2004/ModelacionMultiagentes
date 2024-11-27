@@ -1,7 +1,7 @@
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
-from agent import *
+from .carAgent import *
 import json
 
 class CityModel(Model):
@@ -19,6 +19,7 @@ class CityModel(Model):
         self.traffic_lights = []
         self.destinations = []
         self.initialCars = initialCars
+        self.obstacles = []  # Add a list to store obstacles
 
         with open('city_files/2022_base.txt') as baseFile:
             lines = baseFile.readlines()
@@ -50,6 +51,7 @@ class CityModel(Model):
                     elif col == "#":
                         agent = Obstacle(f"ob_{r*self.width+c}", self)
                         self.grid.place_agent(agent, (c, self.height - r - 1))
+                        self.obstacles.append(agent)  # Add obstacle to the list
 
                     elif col == "D":
                         agent = Destination(f"d_{r*self.width+c}", self)

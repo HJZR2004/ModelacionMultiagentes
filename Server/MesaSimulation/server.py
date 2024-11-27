@@ -1,4 +1,4 @@
-from agent import *
+from carAgent import *
 from model import CityModel
 from mesa.visualization import CanvasGrid, BarChartModule
 from mesa.visualization import ModularServer

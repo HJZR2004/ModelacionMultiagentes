@@ -2,9 +2,7 @@
 
 import * as twgl from 'twgl.js';
 import GUI from 'lil-gui';
-
-import fragmentShader from './assets/shaders/fragment.glsl';
-import vertexShader from './assets/shaders/vertex.glsl';
+import { build } from 'vite';
 
 // Define the vertex shader code, using GLSL 3.00
 const vsGLSL = `#version 300 es
@@ -49,15 +47,18 @@ class Object3D {
 // Define the agent server URI
 const agent_server_uri = "http://localhost:8585/";
 
-// Initialize arrays to store agents and obstacles
-const agents = [];
+// Initialize arrays to store tha map.
 const obstacles = [];
+const roads=[];
+const buildings=[];
+const lights=[];
+const destination = [];
 
 // Initialize WebGL-related variables
 let gl, programInfo, agentArrays, obstacleArrays, agentsBufferInfo, obstaclesBufferInfo, agentsVao, obstaclesVao;
 
 // Define the camera position
-let cameraPosition = {x:0, y:9, z:9};
+let cameraPosition = {x:-70, y:70, z:0};
 
 // Initialize the frame count
 let frameCount = 0;
@@ -610,3 +611,24 @@ function generateObstacleData(size){
 }
 
 main()
+
+/* 
+function drawObject(object, bufferInfo, programInfo, viewProjectionMatrix) {
+  const cube_trans = twgl.v3.create(...object.position);
+  const cube_scale = twgl.v3.create(...object.scale);
+
+  object.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
+  object.matrix = twgl.m4.rotateX(object.matrix, object.rotation[0]);
+  object.matrix = twgl.m4.rotateY(object.matrix, object.rotation[1]);
+  object.matrix = twgl.m4.rotateZ(object.matrix, object.rotation[2]);
+  object.matrix = twgl.m4.scale(object.matrix, cube_scale);
+
+  const uniforms = {
+    u_matrix: object.matrix,
+  };
+
+  twgl.setUniforms(programInfo, uniforms);
+  twgl.drawBufferInfo(gl, bufferInfo);
+}
+
+*/
