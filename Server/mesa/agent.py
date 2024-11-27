@@ -1,4 +1,59 @@
 from mesa import Agent
+import heapq
+
+def a_star(grid, start, goal): 
+    open_set = []
+    heapq.heappush(open_set, (0, start))
+
+    came_from = {}  
+    g_score = {start: 0}  
+    f_score = {start: manhattan_distance(start, goal)}  
+
+    while open_set:
+        _, current = heapq.heappop(open_set)
+
+        if current == goal:
+            path = []
+            while current in came_from:
+                path.append(current)
+                current = came_from[current]
+            path.append(start)
+            path.reverse()
+            return path
+
+        for neighbor in get_neighbors(grid, current):
+            tentative_g_score = g_score[current] + 1  
+            if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                g_score[neighbor] = tentative_g_score
+                f_score[neighbor] = tentative_g_score + manhattan_distance(neighbor, goal)
+                heapq.heappush(open_set, (f_score[neighbor], neighbor))
+                came_from[neighbor] = current
+
+    return []
+
+
+def get_neighbors(grid, position):
+
+    neighbors = grid.get_neighborhood(position, moore=False, include_center=False)
+    valid_neighbors = []
+
+    for neighbor in neighbors:
+        agents = grid.get_cell_list_contents([neighbor])
+        for agent in agents:
+            if isinstance(agent, Road):
+                valid_neighbors.append(neighbor)
+            elif isinstance(agent, Traffic_Light):
+                if agent.state:
+                    valid_neighbors.append(neighbor)
+    return valid_neighbors
+
+def contains_road_or_destination(grid, position):
+    agents = grid.get_cell_list_contents([position])
+    return any(isinstance(agent, (Road, Destination)) for agent in agents)
+
+def manhattan_distance(pos1, pos2):
+    return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
+
 
 class Car(Agent):
     """
@@ -7,7 +62,7 @@ class Car(Agent):
         unique_id: Agent's ID 
         direction: Randomly chosen direction chosen from one of eight directions
     """
-    def __init__(self, unique_id, model):
+    def __init__(self, unique_id, model, position, destination, roads):
         """
         Creates a new random agent.
         Args:
@@ -15,18 +70,32 @@ class Car(Agent):
             model: Model reference for the agent
         """
         super().__init__(unique_id, model)
+        self.pos = position
+        self.destination = destination
+        self.roads = roads
+        self.path = []
+        self.Nstep = 0
 
     def move(self):
-        """ 
+        """  
         Determines if the agent can move in the direction that was chosen
-        """        
-        self.model.grid.move_to_empty(self)
+        """
+        if self.path:
+            next_position = self.path.pop(0)
+            self.model.grid.move_agent(self, next_position)
 
     def step(self):
         """ 
         Determines the new direction it will take, and then moves
         """
-        self.move()
+        if self.pos == self.destination:
+            return
+        
+        if not self.path:
+            self.path = a_star(self.model.grid, self.pos, self.destination)
+
+        if self.path:
+            self.move()
 
 class Traffic_Light(Agent):
     """
