@@ -4,8 +4,8 @@
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-from model import RandomModel
-from agents import RandomAgent, ObstacleAgent
+from mesa.model import RandomModel
+from mesa.agent import RandomAgent, ObstacleAgent
 
 # Size of the board:
 number_agents = 10
