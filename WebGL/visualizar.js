@@ -2,7 +2,14 @@
 
 import * as twgl from 'twgl.js';
 import GUI from 'lil-gui';
-import { build } from 'vite';
+
+import {loadObj} from './scripts/js/loadOBJ.js';
+
+import buildingFile from './scripts/obj/building.obj?raw';
+
+// Define the agent server URI 
+const agent_server_uri = "http://localhost:8585/";
+
 
 // Define the vertex shader code, using GLSL 3.00
 const vsGLSL = `#version 300 es
@@ -44,21 +51,18 @@ class Object3D {
   }
 }
 
-// Define the agent server URI
-const agent_server_uri = "http://localhost:8585/";
-
-// Initialize arrays to store tha map.
+// Initialize arrays to store agents and obstacles
+const agents = [];
 const obstacles = [];
-const roads=[];
-const buildings=[];
-const lights=[];
-const destination = [];
+const trafficLights = [];
+const roads = [];
+const destinations = [];
 
 // Initialize WebGL-related variables
 let gl, programInfo, agentArrays, obstacleArrays, agentsBufferInfo, obstaclesBufferInfo, agentsVao, obstaclesVao;
 
 // Define the camera position
-let cameraPosition = {x:-70, y:70, z:0};
+let cameraPosition = {x:-50, y:40, z:-50};
 
 // Initialize the frame count
 let frameCount = 0;
@@ -188,9 +192,21 @@ async function getObstacles() {
       // Parse the response as JSON
       let result = await response.json()
 
+      // Load the build model and generate the JSON
+      console.log(buildingFile); 
+      const buildModel = loadObj(buildingFile);
+
+      // Create buffer information for the build model
+      const buildBufferInfo = twgl.createBufferInfoFromArrays(gl, buildModel);
+
+      // Create vertex array object (VAO) for the build model
+      const buildVao = twgl.createVAOFromBufferInfo(gl, programInfo, buildBufferInfo);
+
       // Create new obstacles and add them to the obstacles array
       for (const obstacle of result.positions) {
         const newObstacle = new Object3D(obstacle.id, [obstacle.x, obstacle.y, obstacle.z])
+        newObstacle.bufferInfo = buildBufferInfo; // Assign the buffer info to the obstacle
+        newObstacle.vao = buildVao; // Assign the VAO to the obstacle
         obstacles.push(newObstacle)
       }
       // Log the obstacles array
@@ -323,33 +339,32 @@ function drawAgents(distance, agentsVao, agentsBufferInfo, viewProjectionMatrix)
  * @param {Object} obstaclesBufferInfo - The buffer information for obstacles.
  * @param {Float32Array} viewProjectionMatrix - The view-projection matrix.
  */
-function drawObstacles(distance, obstaclesVao, obstaclesBufferInfo, viewProjectionMatrix){
-    // Bind the vertex array object for obstacles
-    gl.bindVertexArray(obstaclesVao);
+function drawObstacles(distance, obstaclesVao, obstaclesBufferInfo, viewProjectionMatrix) {
+  // Iterate over the obstacles
+  for (const obstacle of obstacles) {
+    // Bind the vertex array object for the obstacle
+    gl.bindVertexArray(obstacle.vao);
 
-    // Iterate over the obstacles
-    for(const obstacle of obstacles){
-      // Create the obstacle's transformation matrix
-      const cube_trans = twgl.v3.create(...obstacle.position);
-      const cube_scale = twgl.v3.create(...obstacle.scale);
+    // Create the obstacle's transformation matrix
+    const cube_trans = twgl.v3.create(...obstacle.position);
+    const cube_scale = twgl.v3.create(...obstacle.scale);
 
-      // Calculate the obstacle's matrix
-      obstacle.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
-      obstacle.matrix = twgl.m4.rotateX(obstacle.matrix, obstacle.rotation[0]);
-      obstacle.matrix = twgl.m4.rotateY(obstacle.matrix, obstacle.rotation[1]);
-      obstacle.matrix = twgl.m4.rotateZ(obstacle.matrix, obstacle.rotation[2]);
-      obstacle.matrix = twgl.m4.scale(obstacle.matrix, cube_scale);
+    // Calculate the obstacle's matrix
+    obstacle.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
+    obstacle.matrix = twgl.m4.rotateX(obstacle.matrix, obstacle.rotation[0]);
+    obstacle.matrix = twgl.m4.rotateY(obstacle.matrix, obstacle.rotation[1]);
+    obstacle.matrix = twgl.m4.rotateZ(obstacle.matrix, obstacle.rotation[2]);
+    obstacle.matrix = twgl.m4.scale(obstacle.matrix, cube_scale);
 
-      // Set the uniforms for the obstacle
-      let uniforms = {
-          u_matrix: obstacle.matrix,
-      }
+    // Set the uniforms for the obstacle
+    let uniforms = {
+      u_matrix: obstacle.matrix,
+    };
 
-      // Set the uniforms and draw the obstacle
-      twgl.setUniforms(programInfo, uniforms);
-      twgl.drawBufferInfo(gl, obstaclesBufferInfo);
-      
-    }
+    // Set the uniforms and draw the obstacle
+    twgl.setUniforms(programInfo, uniforms);
+    twgl.drawBufferInfo(gl, obstacle.bufferInfo);
+  }
 }
 
 /*
@@ -359,67 +374,68 @@ function drawObstacles(distance, obstaclesVao, obstaclesBufferInfo, viewProjecti
  * @returns {Float32Array} The view-projection matrix.
  */
 function setupWorldView(gl) {
-    // Set the field of view (FOV) in radians
-    const fov = 45 * Math.PI / 180;
+  // Set the field of view (FOV) in radians
+  const fov = 45 * Math.PI / 180;
 
-    // Calculate the aspect ratio of the canvas
-    const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+  // Calculate the aspect ratio of the canvas
+  const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
 
-    // Create the projection matrix
-    const projectionMatrix = twgl.m4.perspective(fov, aspect, 1, 200);
+  // Create the projection matrix
+  const projectionMatrix = twgl.m4.perspective(fov, aspect, 1, 200);
 
-    // Set the target position
-    const target = [data.width/2, 0, data.height/2];
+  // Set the target position
+  const target = [data.width / 2, 0, data.height / 2];
 
-    // Set the up vector
-    const up = [0, 1, 0];
+  // Set the up vector
+  const up = [0, 1, 0];
 
-    // Calculate the camera position
-    const camPos = twgl.v3.create(cameraPosition.x + data.width/2, cameraPosition.y, cameraPosition.z+data.height/2)
+  // Calculate the camera position
+  const camPos = twgl.v3.create(cameraPosition.x + data.width / 2, cameraPosition.y, cameraPosition.z + data.height / 2)
 
-    // Create the camera matrix
-    const cameraMatrix = twgl.m4.lookAt(camPos, target, up);
+  // Create the camera matrix
+  const cameraMatrix = twgl.m4.lookAt(camPos, target, up);
 
-    // Calculate the view matrix
-    const viewMatrix = twgl.m4.inverse(cameraMatrix);
+  // Calculate the view matrix
+  const viewMatrix = twgl.m4.inverse(cameraMatrix);
 
-    // Calculate the view-projection matrix
-    const viewProjectionMatrix = twgl.m4.multiply(projectionMatrix, viewMatrix);
+  // Calculate the view-projection matrix
+  const viewProjectionMatrix = twgl.m4.multiply(projectionMatrix, viewMatrix);
 
-    // Return the view-projection matrix
-    return viewProjectionMatrix;
+  // Return the view-projection matrix
+  return viewProjectionMatrix;
 }
+
 
 /*
  * Sets up the user interface (UI) for the camera position.
  */
 function setupUI() {
-    // Create a new GUI instance
-    const gui = new GUI();
+  // Create a new GUI instance
+  const gui = new GUI();
 
-    // Create a folder for the camera position
-    const posFolder = gui.addFolder('Position:')
+  // Create a folder for the camera position
+  const posFolder = gui.addFolder('Position:')
 
-    // Add a slider for the x-axis
-    posFolder.add(cameraPosition, 'x', -50, 50)
-        .onChange( value => {
-            // Update the camera position when the slider value changes
-            cameraPosition.x = value
-        });
+  // Add a slider for the x-axis
+  posFolder.add(cameraPosition, 'x', -50, 50)
+    .onChange(value => {
+      // Update the camera position when the slider value changes
+      cameraPosition.x = value
+    });
 
-    // Add a slider for the y-axis
-    posFolder.add( cameraPosition, 'y', -50, 50)
-        .onChange( value => {
-            // Update the camera position when the slider value changes
-            cameraPosition.y = value
-        });
+  // Add a slider for the y-axis
+  posFolder.add(cameraPosition, 'y', -25, 25)
+    .onChange(value => {
+      // Update the camera position when the slider value changes
+      cameraPosition.y = value
+    });
 
-    // Add a slider for the z-axis
-    posFolder.add( cameraPosition, 'z', -50, 50)
-        .onChange( value => {
-            // Update the camera position when the slider value changes
-            cameraPosition.z = value
-        });
+  // Add a slider for the z-axis
+  posFolder.add(cameraPosition, 'z', -50, 50)
+    .onChange(value => {
+      // Update the camera position when the slider value changes
+      cameraPosition.z = value
+    });
 }
 
 function generateData(size) {
@@ -611,24 +627,3 @@ function generateObstacleData(size){
 }
 
 main()
-
-/* 
-function drawObject(object, bufferInfo, programInfo, viewProjectionMatrix) {
-  const cube_trans = twgl.v3.create(...object.position);
-  const cube_scale = twgl.v3.create(...object.scale);
-
-  object.matrix = twgl.m4.translate(viewProjectionMatrix, cube_trans);
-  object.matrix = twgl.m4.rotateX(object.matrix, object.rotation[0]);
-  object.matrix = twgl.m4.rotateY(object.matrix, object.rotation[1]);
-  object.matrix = twgl.m4.rotateZ(object.matrix, object.rotation[2]);
-  object.matrix = twgl.m4.scale(object.matrix, cube_scale);
-
-  const uniforms = {
-    u_matrix: object.matrix,
-  };
-
-  twgl.setUniforms(programInfo, uniforms);
-  twgl.drawBufferInfo(gl, bufferInfo);
-}
-
-*/

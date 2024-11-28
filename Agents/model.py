@@ -1,7 +1,7 @@
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
-from carAgent import Car, Traffic_Light, Destination, Obstacle, Road
+from agent import Car, Traffic_Light, Destination, Obstacle, Road
 import json
 
 
@@ -15,7 +15,7 @@ class CityModel(Model):
     def __init__(self, initialCars,width,height):
         try:
             print("Loading mapDictionary.json...")
-            dataDictionary = json.load(open("./MesaSimulation/city_files/mapDictionary.json"))
+            dataDictionary = json.load(open("./city_files/mapDictionary.json"))
             print("mapDictionary.json loaded successfully.")
         except FileNotFoundError as e:
             print(f"Error: {e}")
@@ -29,7 +29,7 @@ class CityModel(Model):
 
         try:
             print("Loading 2022_base.txt...")
-            with open('./MesaSimulation/city_files/2022_base.txt') as baseFile:
+            with open('./city_files/2022_base.txt') as baseFile:
                 lines = baseFile.readlines()
                 print("2022_base.txt loaded successfully.")
                 self.width = len(lines[0])-1

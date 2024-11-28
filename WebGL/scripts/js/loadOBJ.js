@@ -4,13 +4,12 @@ A01027743
 */
 import fs from 'fs';
 
-
-
-/* 
-Crear funcion que reciba un string que sea un archivo .OBJ, y retorne un JSON
-*/
-
 function loadObj(Loaded_OBJ) {
+
+    // Ensure Loaded_OBJ is a string
+    if (typeof Loaded_OBJ !== 'string') {
+        throw new Error('Loaded_OBJ must be a string');
+    }
 
     //Estrucrura del JSON
     const result = {
@@ -26,6 +25,10 @@ function loadObj(Loaded_OBJ) {
             numComponents: 3,
             data: []
         },
+        indices: {
+            numComponents: 3,
+            data: []
+        }
     };
 
     const vertices = [];
@@ -49,11 +52,13 @@ function loadObj(Loaded_OBJ) {
         // Si la línea empieza con 'f ', es una cara
         else if (line.startsWith('f ')) {
             const face = line.slice(2).trim().split(' ');
+            const indices = [];
             for (const vertex of face) {
                 const parts = vertex.split('/');
         
                 // Maneja el índice del vértice
                 const vIndex = parseInt(parts[0]) - 1;
+                indices.push(vIndex);
         
                 // Maneja el índice de la normal (si existe)
                 const nIndex = parts[2] ? parseInt(parts[2]) - 1 : -1;
@@ -74,6 +79,7 @@ function loadObj(Loaded_OBJ) {
                     );
                 }
             }
+            result.indices.data.push(...indices);
         }
         
     }
@@ -89,7 +95,4 @@ function loadObj(Loaded_OBJ) {
     return result;
 }
 
-const Loaded_OBJ = fs.readFileSync('cube.obj', 'utf8');
-const jsonObject = loadObj(Loaded_OBJ);
-fs.writeFileSync('cube.json', JSON.stringify(jsonObject, null, 2));
-console.log("Archivo JSON creado exitosamente");
+export { loadObj };

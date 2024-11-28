@@ -2,7 +2,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
 from model import CityModel
-from carAgent import Car, Traffic_Light, Destination, Obstacle, Road
+from agent import Car, Traffic_Light, Destination, Obstacle, Road
 
 # Global variables
 number_agents = 10
