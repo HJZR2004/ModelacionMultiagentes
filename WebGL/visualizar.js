@@ -49,7 +49,6 @@ const agent_server_uri = "http://localhost:8585/";
 const agents_array = [];
 const buildings_array = [];
 const roads_array = [];
-const cars_array = [];
 const destinations_array = [];
 
 // Initialize WebGL-related variables
