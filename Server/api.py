@@ -21,55 +21,72 @@ currentStep = 0
 app = Flask("Traffic example")
 cors = CORS(app, origins=['http://localhost'])
 
-# This route will be used to send the parameters of the simulation to the server.
-# The servers expects a POST request with the parameters in a.json.
 @app.route('/init', methods=['POST'])
 @cross_origin()
 def initModel():
-    global currentStep, cityModel, number_agents, width, height
+    global cityModel, currentStep
 
     if request.method == 'POST':
         try:
-
-            number_agents = int(request.json.get('NAgents'))
-            width = int(request.json.get('width'))
-            height = int(request.json.get('height'))
+            # Inicializar el modelo con los archivos predefinidos
+            print("Initializing CityModel...")
+            cityModel = CityModel()  # Constructor sin parámetros
             currentStep = 0
+            print("CityModel initialized successfully.")
 
-            print(request.json)
-            print(f"Model parameters:{number_agents, width, height}")
+            # Responder con un mensaje de éxito
+            return jsonify({"message": "Model initialized successfully."})
 
-            # Create the model using the parameters sent by the application
-            cityModel = CityModel(number_agents, width, height)
+        except FileNotFoundError as e:
+            print(f"File error: {e}")
+            return jsonify({"message": f"File not found: {e}"}), 500
 
-            # Return a message to saying that the model was created successfully
-            return jsonify({"message":"Parameters recieved, model initiated."})
+        except json.JSONDecodeError as e:
+            print(f"JSON error: {e}")
+            return jsonify({"message": "Error decoding JSON files."}), 500
 
         except Exception as e:
-            print(e)
-            return jsonify({"message":"Erorr initializing the model"}), 500
+            print(f"Unexpected error: {e}")
+            return jsonify({"message": "Error initializing the model."}), 500
+
+
 
 @app.route('/getAgents', methods=['GET'])
 @cross_origin()
 def getAgents():
     global cityModel
 
-    if request.method == 'GET':
-        # Get the positions of the agents and return them to WebGL in JSON.json.t.
-        # Note that the positions are sent as a list of dictionaries, where each dictionary has the id and position of an agent.
-        # The y coordinate is set to 1, since the agents are in a 3D world. The z coordinate corresponds to the row (y coordinate) of the grid in mesa.
-        try:
-            carPosition = [
-                {"id": str(agent.unique_id), "x": x, "y": 0.5, "z": z,
-                 "lastPosition": agent.lastPosition}
-                for agents, (x, z) in cityModel.grid.coord_iter()
-                for agent in agents if isinstance(agent, Car)
-            ]
+    if cityModel is None:
+        return jsonify({"message": "Model not initialized"}), 400
 
-            return jsonify({'positions': carPosition})
-        except Exception as e:
-            print(e)
-            return jsonify({"message": "Error with the agent positions"}), 500
+    try:
+        print("Fetching car positions...")
+        
+        car_positions = []
+        for agent in cityModel.schedule.agents:
+            if isinstance(agent, Car):
+                # Verificar y registrar la posición del auto
+                if hasattr(agent, "pos") and agent.pos:
+                    print(f"Car {agent.unique_id} is at position {agent.pos}")
+                    car_positions.append({
+                        "id": str(agent.unique_id),
+                        "x": agent.pos[0],
+                        "y": 0.5,  # Altura fija
+                        "z": agent.pos[1]
+                    })
+                else:
+                    print(f"Car {agent.unique_id} has no position assigned.")
+
+        print(f"Retrieved car positions: {car_positions}")
+        return jsonify({'positions': car_positions})
+
+    except Exception as e:
+        print(f"Error fetching agents: {e}")
+        return jsonify({"message": "Error with the agent positions"}), 500
+
+
+
+
 
 
 

@@ -1,106 +1,145 @@
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
-from carAgent import Car, Traffic_Light, Destination, Obstacle, Road
+from agent import Car, Destination, Obstacle, Road, Traffic_Light
 import json
 
 
 class CityModel(Model):
-    """ 
-        Creates a model based on a city map.
-
-        Args:
-            N: Number of cars in the simulation
     """
-    def __init__(self, initialCars,width,height):
-        try:
-            print("Loading mapDictionary.json...")
-            dataDictionary = json.load(open("./MesaSimulation/city_files/mapDictionary.json"))
-            print("mapDictionary.json loaded successfully.")
-        except FileNotFoundError as e:
-            print(f"Error: {e}")
-            raise
+    Creates a model based on a city map.
+    """
+    def __init__(self):
+        super().__init__()
 
-        self.Nstep = 0
         self.traffic_lights = []
-        self.destinations = []
-        self.initialCars = initialCars
-        self.obstacles = []  # Add a list to store obstacles
+        self.graph = []
 
-        try:
-            print("Loading 2022_base.txt...")
-            with open('./MesaSimulation/city_files/2022_base.txt') as baseFile:
-                lines = baseFile.readlines()
-                print("2022_base.txt loaded successfully.")
-                self.width = len(lines[0])-1
-                self.height = len(lines)
-                print(f"Grid size: width={self.width}, height={self.height}")
+        dataDictionary = json.load(open("city_files/mapDictionary.json"))
+        lines = open("city_files/2024_base.txt").readlines()
 
-                self.grid = MultiGrid(self.width, self.height, torus = False) 
-                self.schedule = RandomActivation(self)
+        self.width = len(lines[0]) - 1
+        self.height = len(lines)
 
-                self.car_spawn_positions = [
-                    (0, 0), (self.width -1, 0), (0, self.height - 1), (self.width - 1, self.height -1)
-                    ]
+        self.grid = MultiGrid(self.width, self.height, torus=False)
+        self.schedule = RandomActivation(self)
 
-                for r, row in enumerate(lines):
-                    for c, col in enumerate(row):
-                        self.roads = []
-                        if col in ["v", "^", ">", "<"]:
-                            agent = Road(f"r_{r*self.width+c}", self, dataDictionary[col])
-                            self.grid.place_agent(agent, (c, self.height - r - 1))
-                            self.roads.append(((c, self.height - r - 1), dataDictionary[col]))
-                            print(f"Placed Road at {(c, self.height - r - 1)} with direction {dataDictionary[col]}")
+        for r, row in enumerate(lines):
+            for c, col in enumerate(row):
+                pos = (c, self.height - r - 1)
+                self.process_cell(r, c, col, pos, dataDictionary, lines)
 
-                        elif col in ["S", "s"]:
-                            direction = self.get_direction_of_road((c, self.height - r - 1))
-                            agent = Traffic_Light(f"tl_{r*self.width+c}", self, False if col == "S" else True, int(dataDictionary[col]))
-                            self.grid.place_agent(agent, (c, self.height - r - 1))
-                            self.schedule.add(agent)
-                            self.traffic_lights.append(agent)
-                            print(f"Placed Traffic Light at {(c, self.height - r - 1)} with state {'Red' if col == 'S' else 'Green'}")
-
-                        elif col == "#":
-                            agent = Obstacle(f"ob_{r*self.width+c}", self)
-                            self.grid.place_agent(agent, (c, self.height - r - 1))
-                            self.obstacles.append(agent)  # Add obstacle to the list
-                            print(f"Placed Obstacle at {(c, self.height - r - 1)}")
-
-                        elif col == "D":
-                            agent = Destination(f"d_{r*self.width+c}", self)
-                            self.grid.place_agent(agent, (c, self.height - r - 1))
-                            print(f"Placed Destination at {(c, self.height - r - 1)}")
-        except FileNotFoundError as e:
-            print(f"Error: {e}")
-            raise
-
-        for i in range(self.initialCars):
-            spawn_pos = self.car_spawn_positions[i % len(self.car_spawn_positions)]
-            destination = self.destinations[0] if self.destinations else (self.width // 2, self.height // 2)
-            car = Car(f"car_{i}", self, spawn_pos, destination, self.roads)
-            self.grid.place_agent(car, spawn_pos)
-            self.schedule.add(car)
-            print(f"Placed Car {i} at {spawn_pos} with destination {destination}")
-
+        self.CreateCars()
         self.running = True
+        self.Creategraph()
+
+    def process_cell(self, r, c, col, pos, dataDictionary, lines):
+        if col in ["v", "^", ">", "<"]:
+            agent = Road(f"r_{r*self.width+c}", self, dataDictionary[col])
+            self.grid.place_agent(agent, pos)
+
+        elif col in ["S", "s"]:
+            self.create_traffic_light(r, c, col, pos, dataDictionary, lines)
+
+        elif col == "#":
+            agent = Obstacle(f"ob_{r*self.width+c}", self)
+            self.grid.place_agent(agent, pos)
+
+        elif col == "D":
+            obstacle = Obstacle(f"ob_{r*self.width+c}", self)
+            self.grid.place_agent(obstacle, pos)
+            destination = Destination(f"d_{r*self.width+c}", self)
+            self.grid.place_agent(destination, pos)
+
+    def create_traffic_light(self, r, c, col, pos, dataDictionary, lines):
+        road_created = False
+        neighbors = (
+            [lines[r - 1][c], lines[r + 1][c]] if col == "S" else [lines[r][c - 1], lines[r][c + 1]]
+        )
+
+        for road in neighbors:
+            if road in ["v", "^", ">", "<"]:
+                road_agent = Road(f"r_{r*self.width+c}", self, dataDictionary[road])
+                self.grid.place_agent(road_agent, pos)
+                road_created = True
+                break
+
+        if not road_created:
+            default_direction = "v" if col == "S" else ">"
+            road_agent = Road(f"r_{r*self.width+c}", self, dataDictionary[default_direction])
+            self.grid.place_agent(road_agent, pos)
+
+        traffic_light = Traffic_Light(
+            f"tl_{r*self.width+c}",
+            self,
+            direction=road_agent.direction,
+            state=(col == "s"),
+            timeToChange=int(dataDictionary[col]),
+        )
+        self.grid.place_agent(traffic_light, pos)
+        self.schedule.add(traffic_light)
+        self.traffic_lights.append(traffic_light)
+
+    def graphNodes(self, road):
+        return next((node[1] for node in self.graph if road == node[0]), None)
 
     def step(self):
-        '''Advance the model by one step.'''
-        print(f"Step {self.Nstep}")
+        if self.schedule.steps % 10 == 0:
+            self.CreateCars()
+
         self.schedule.step()
-        self.Nstep += 1
 
-        if self.Nstep % 10 == 0:
-            for i, spawn_pos in enumerate(self.car_spawn_positions):
-                destination = self.destinations[0] if self.destinations else (self.width // 2, self.height // 2)
-                car = Car(f"car_{self.Nstep}_new_{i}", self, spawn_pos, destination, self.roads)
-                self.grid.place_agent(car, spawn_pos)
-                self.schedule.add(car)
-                print(f"Placed new Car at step {self.Nstep} at {spawn_pos} with destination {destination}")
+    def CreateCars(self):
+        spawnPoint = [(0, 0), (0, self.height - 1), (self.width - 1, 0), (self.width - 1, self.height - 1)]
 
-    def get_direction_of_road(self, position):
-        agents_in_cell = self.grid.get_cell_list_contents([position])
-        for agent in agents_in_cell:
-            if isinstance(agent, Road):
-                return agent.direction
-        return None
+        for spawn in spawnPoint:
+            if any(isinstance(agent, Car) for agent in self.grid.iter_cell_list_contents([spawn])):
+                break
+
+            destination_pos = []
+            for destination in self.get_agents_of_type(Destination):
+                destination_pos.append(destination.pos)
+
+            new_car = Car(self.next_id(), self, self.random.choice(destination_pos))
+            self.grid.place_agent(new_car, spawn)
+            self.schedule.add(new_car)
+
+    def Roads(self, road):
+        NeighborRoads = []
+        for neighbor in self.grid.get_neighbors(road.pos, moore=True, include_center=False):
+            if isinstance(neighbor, Road):
+                NeighborRoads.append(neighbor)
+
+        Roads = []
+        for neighbor_road in NeighborRoads:
+            if self.Conect_RoadNodes(road, neighbor_road):
+                Roads.append(neighbor_road)
+        return Roads
+
+
+    def Conect_RoadNodes(self, road, neighbor_road):
+        direction_checks = {
+            "Up": lambda: neighbor_road.pos[1] == road.pos[1] + 1 and not (
+                (neighbor_road.direction == "Left" and neighbor_road.pos[0] > road.pos[0]) or
+                (neighbor_road.direction == "Right" and neighbor_road.pos[0] < road.pos[0])
+            ),
+            "Down": lambda: neighbor_road.pos[1] == road.pos[1] - 1 and not (
+                (neighbor_road.direction == "Left" and neighbor_road.pos[0] > road.pos[0]) or
+                (neighbor_road.direction == "Right" and neighbor_road.pos[0] < road.pos[0])
+            ),
+            "Left": lambda: neighbor_road.pos[0] == road.pos[0] - 1 and not (
+                (neighbor_road.direction == "Up" and neighbor_road.pos[1] < road.pos[1]) or
+                (neighbor_road.direction == "Down" and neighbor_road.pos[1] > road.pos[1])
+            ),
+            "Right": lambda: neighbor_road.pos[0] == road.pos[0] + 1 and not (
+                (neighbor_road.direction == "Up" and neighbor_road.pos[1] < road.pos[1]) or
+                (neighbor_road.direction == "Down" and neighbor_road.pos[1] > road.pos[1])
+            ),
+        }
+
+        return direction_checks.get(road.direction, lambda: False)()
+
+
+    def Creategraph(self):
+        self.graph = list(map(lambda road: (road.pos, self.Roads(road)), self.get_agents_of_type(Road)))
+   
