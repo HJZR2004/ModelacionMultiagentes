@@ -1,158 +1,170 @@
 from mesa import Agent
-import heapq
-
-def a_star(grid, start, goal): 
-    open_set = []
-    heapq.heappush(open_set, (0, start))
-
-    came_from = {}  
-    g_score = {start: 0}  
-    f_score = {start: manhattan_distance(start, goal)}  
-
-    while open_set:
-        _, current = heapq.heappop(open_set)
-
-        if current == goal:
-            path = []
-            while current in came_from:
-                path.append(current)
-                current = came_from[current]
-            path.append(start)
-            path.reverse()
-            return path
-
-        for neighbor in get_neighbors(grid, current):
-            tentative_g_score = g_score[current] + 1  
-            if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
-                g_score[neighbor] = tentative_g_score
-                f_score[neighbor] = tentative_g_score + manhattan_distance(neighbor, goal)
-                heapq.heappush(open_set, (f_score[neighbor], neighbor))
-                came_from[neighbor] = current
-
-    return []
-
-
-def get_neighbors(grid, position):
-
-    neighbors = grid.get_neighborhood(position, moore=False, include_center=False)
-    valid_neighbors = []
-
-    for neighbor in neighbors:
-        agents = grid.get_cell_list_contents([neighbor])
-        for agent in agents:
-            if isinstance(agent, Road):
-                valid_neighbors.append(neighbor)
-            elif isinstance(agent, Traffic_Light):
-                if agent.state:
-                    valid_neighbors.append(neighbor)
-    return valid_neighbors
-
-def contains_road_or_destination(grid, position):
-    agents = grid.get_cell_list_contents([position])
-    return any(isinstance(agent, (Road, Destination)) for agent in agents)
-
-def manhattan_distance(pos1, pos2):
-    return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
-
+from queue import PriorityQueue
 
 class Car(Agent):
-    """
-    Agent that moves randomly.
-    Attributes:
-        unique_id: Agent's ID 
-        direction: Randomly chosen direction chosen from one of eight directions
-    """
-    def __init__(self, unique_id, model, position, destination, roads):
-        """
-        Creates a new random agent.
-        Args:
-            unique_id: The agent's ID
-            model: Model reference for the agent
-        """
+    def __init__(self, unique_id, model, destination):
+
         super().__init__(unique_id, model)
-        self.pos = position
+
         self.destination = destination
-        self.roads = roads
+        self.destination_neighbors = []
         self.path = []
-        self.Nstep = 0
+        self.arrived = 0
+
+    def get_distance(self, pos1, pos2):
+        """
+        Manhattan
+        """
+        dx = abs(pos2[0] - pos1[0])
+        dy = abs(pos2[1] - pos1[1])
+        return dx + dy
+
+    def get_route(self):
+        """
+        A*
+        """
+        self.path.clear() 
+
+        destination_neighborhood = self.model.grid.get_neighborhood(self.destination, moore=True, include_center=False)
+
+        for neighbor_cells in destination_neighborhood:
+            if not isinstance(neighbor_cells, tuple):
+                continue
+
+            cell_agents = self.model.grid.get_cell_list_contents(neighbor_cells)
+            for agent in cell_agents:
+                if isinstance(agent, Road):
+                    self.destination_neighbors.append(neighbor_cells)
+
+        if self.pos in self.destination_neighbors:
+            return
+
+
+        open_list = PriorityQueue()
+        open_list.put((0, self.pos))
+        closed_list = set()
+
+        path_trace = {}
+
+        cost = {self.pos: 0}
+        
+
+        while not  open_list.empty():
+            _, current_pos = open_list.get()
+
+            if current_pos in self.destination_neighbors:
+                self.path = self.temp_path(path_trace, current_pos)
+                return
+
+            closed_list.add(current_pos)
+
+            for neighbor in self.model.graphNodes(current_pos):
+                if neighbor.pos in closed_list:
+                    continue
+
+                new_cost = cost[current_pos] + 1
+
+                if neighbor.pos not in cost or new_cost < cost[neighbor.pos]:
+
+                    path_trace[neighbor.pos] = current_pos
+                    cost[neighbor.pos] = new_cost
+                    Totalcost = new_cost + self.get_distance(neighbor.pos, self.destination)
+                    open_list.put((Totalcost, neighbor.pos))
+
+
+    def temp_path(self, path_trace, current_pos):
+        """
+        temporary path
+        """
+        temp_path = []
+        while current_pos in path_trace:
+            temp_path.insert(0, current_pos)
+            current_pos = path_trace[current_pos]
+        return temp_path
 
     def move(self):
-        """  
+        """ 
         Determines if the agent can move in the direction that was chosen
-        """
-        if self.path:
-            next_position = self.path.pop(0)
-            self.model.grid.move_agent(self, next_position)
+        """    
+        if not self.path:
+            return
+
+        next_pos = self.path[0]
+        cell_agents = self.model.grid.get_cell_list_contents(next_pos)
+
+        for agent in cell_agents:
+            if isinstance(agent, Traffic_Light) and not agent.state:
+                return 
+            
+        for agent in cell_agents:
+            if isinstance(agent, Car):
+                return 
+
+        next_step = self.path.pop(0)
+        self.model.grid.move_agent(self, next_step)
 
     def step(self):
-        """ 
+        """
         Determines the new direction it will take, and then moves
         """
-        if self.pos == self.destination:
-            return
-        
-        if not self.path:
-            self.path = a_star(self.model.grid, self.pos, self.destination)
 
-        if self.path:
+        if not self.path:
+            self.get_route()
+
+        if self.pos in self.destination_neighbors:
+            self.arrived += 1
+            self.model.grid.remove_agent(self)
+            self.model.schedule.remove(self)
+        else:
             self.move()
+
 
 class Traffic_Light(Agent):
     """
     Traffic light. Where the traffic lights are in the grid.
     """
-    def __init__(self, unique_id, model, state = False, timeToChange = 10):
+
+    def __init__(self, unique_id, model, state=False, direction="Left", timeToChange=10):
         super().__init__(unique_id, model)
-        """
-        Creates a new Traffic light.
-        Args:
-            unique_id: The agent's ID
-            model: Model reference for the agent
-            state: Whether the traffic light is green or red
-            timeToChange: After how many step should the traffic light change color 
-        """
+        self.direction = direction
         self.state = state
         self.timeToChange = timeToChange
 
     def step(self):
-        """ 
-        To change the state (green or red) of the traffic light in case you consider the time to change of each traffic light.
-        """
         if self.model.schedule.steps % self.timeToChange == 0:
             self.state = not self.state
+
 
 class Destination(Agent):
     """
     Destination agent. Where each car should go.
     """
+
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
 
     def step(self):
         pass
+
 
 class Obstacle(Agent):
     """
     Obstacle agent. Just to add obstacles to the grid.
     """
+
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
 
     def step(self):
         pass
 
+
 class Road(Agent):
     """
     Road agent. Determines where the cars can move, and in which direction.
     """
-    def __init__(self, unique_id, model, direction= "Left"):
-        """
-        Creates a new road.
-        Args:
-            unique_id: The agent's ID
-            model: Model reference for the agent
-            direction: Direction where the cars can move
-        """
+
+    def __init__(self, unique_id, model, direction="Left"):
         super().__init__(unique_id, model)
         self.direction = direction
 
