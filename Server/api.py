@@ -28,26 +28,48 @@ def initModel():
 
     if request.method == 'POST':
         try:
-            # Inicializar el modelo con los archivos predefinidos
             print("Initializing CityModel...")
-            cityModel = CityModel()  # Constructor sin parámetros
+            # Initialize the CityModel
+            cityModel = CityModel()
             currentStep = 0
             print("CityModel initialized successfully.")
 
-            # Responder con un mensaje de éxito
-            return jsonify({"message": "Model initialized successfully."})
+            # Verifying agents in the schedule
+            print("Agents in schedule:")
+            schedule_agents = []
+            for agent in cityModel.schedule.agents:
+                agent_info = {
+                    "Agent ID": agent.unique_id,
+                    "Type": type(agent).__name__,
+                    "Position": getattr(agent, "pos", "No position")
+                }
+                schedule_agents.append(agent_info)
+                print(agent_info)
 
-        except FileNotFoundError as e:
-            print(f"File error: {e}")
-            return jsonify({"message": f"File not found: {e}"}), 500
+            # Verifying agents in the grid
+            print("Agents in grid:")
+            grid_agents = []
+            for cell in cityModel.grid.coord_iter():
+                cell_agents, (x, z) = cell
+                for agent in cell_agents:
+                    agent_info = {
+                        "Agent ID": agent.unique_id,
+                        "Type": type(agent).__name__,
+                        "Position": (x, z)
+                    }
+                    grid_agents.append(agent_info)
+                    print(agent_info)
 
-        except json.JSONDecodeError as e:
-            print(f"JSON error: {e}")
-            return jsonify({"message": "Error decoding JSON files."}), 500
+            return jsonify({
+                "message": "Model initialized successfully.",
+                "schedule_agents": schedule_agents,
+                "grid_agents": grid_agents
+            })
 
         except Exception as e:
-            print(f"Unexpected error: {e}")
-            return jsonify({"message": "Error initializing the model."}), 500
+            print(f"Unexpected error during initialization: {e}")
+            return jsonify({"message": f"Error initializing the model: {str(e)}"}), 500
+
 
 
 
@@ -89,29 +111,41 @@ def getAgents():
 
 
 
-
 @app.route('/getObstacles', methods=['GET'])
 @cross_origin()
 def getObstacles():
-    global city
+    global cityModel
 
-    if city is None:
+    if cityModel is None:
+        print("cityModel is not initialized.")
         return jsonify({"message": "Model not initialized"}), 400
 
     if request.method == 'GET':
         try:
-            # Get the positions of the obstacles and return them to WebGL in JSON.json.t.
-            # Same as before, the positions are sent as a list of dictionaries, where each dictionary has the id and position of an obstacle.
-            obstaclePosition = [
-                {"id": str(agent.unique_id), "x": x, "y": 1.5, "z": z}
-                for agents, (x, z) in city.grid.coord_iter()
-                for agent in agents if isinstance(agent, Obstacle)
-            ]
+            print("Starting obstacle position fetch...")
 
-            return jsonify({'positions': obstaclePosition})
+            obstacle_positions = []
+            for cell in cityModel.grid.coord_iter():
+                cell_agents, (x, z) = cell  # `coord_iter()` devuelve (lista_agentes, (x, y))
+                print(f"Cell ({x}, {z}) contains: {[type(agent).__name__ for agent in cell_agents]}")
+
+                for agent in cell_agents:
+                    if isinstance(agent, Obstacle):
+                        print(f"Found obstacle {agent.unique_id} at ({x}, {z})")
+                        obstacle_positions.append({
+                            "id": str(agent.unique_id),
+                            "x": x,
+                            "y": 1.5,  # Altura fija para representación 3D
+                            "z": z
+                        })
+
+            print(f"Returning obstacle positions: {obstacle_positions}")
+            return jsonify({'positions': obstacle_positions})
+
         except Exception as e:
-            print(e)
-            return jsonify({"message": "Error with obstacle positions"}), 500
+            print(f"Error fetching obstacle positions: {e}")
+            return jsonify({"message": f"Error with obstacle positions: {str(e)}"}), 500
+
 
 
 @app.route('/getTrafficLights', methods=['GET'])
@@ -202,6 +236,27 @@ def updateModel():
         except Exception as e:
             print(e)
             return jsonify({"message": "Error during step."}), 500
+        
+
+@app.route('/step', methods=['GET'])
+@cross_origin()
+def step():
+    global cityModel, currentStep
+
+    if cityModel is None:
+        return jsonify({"message": "Model not initialized"}), 400
+
+    try:
+        print(f"Executing step {currentStep}...")
+        cityModel.step()
+        currentStep += 1
+        print(f"Step {currentStep} completed.")
+        return jsonify({"message": f"Step {currentStep} completed."})
+
+    except Exception as e:
+        print(f"Error during step: {e}")
+        return jsonify({"message": "Error during step execution"}), 500
+
 
 
 if __name__ == '__main__':

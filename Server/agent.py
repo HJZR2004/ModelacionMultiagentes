@@ -10,6 +10,7 @@ class Car(Agent):
         self.destination_neighbors = []
         self.path = []
         self.arrived = 0
+        self.current = 0
 
     def get_distance(self, pos1, pos2):
         """
@@ -113,6 +114,7 @@ class Car(Agent):
 
         if self.pos in self.destination_neighbors:
             self.arrived += 1
+            self.current -= 1
             self.model.grid.remove_agent(self)
             self.model.schedule.remove(self)
         else:
