@@ -91,7 +91,7 @@ class Road {
 
 //Define the car class
 class Car {
-  constructor(id, position=[0,0,0], rotation=[0,0,0],scale=[0.1,0.1,0.1]){
+  constructor(id, position=[0,0,0], rotation=[0,0,0],scale=[0.29,0.29,0.29]){
     this.id = id;
     this.position = position;
     this.rotation = rotation;
@@ -102,7 +102,7 @@ class Car {
 
 //Define the destination class
 class Destination {
-  constructor(id, position=[0,0,0], rotation=[0,0,0],scale=[0.01,0.01,0.01]){
+  constructor(id, position=[0,0,0], rotation=[0,0,0],scale=[0.02,0.02,0.02]){
     this.id = id;
     this.position = position;
     this.rotation = rotation;
