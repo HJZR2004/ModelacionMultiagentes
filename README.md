@@ -1,7 +1,16 @@
-# ModelacionMultiagentes
+# Reporte del reto
 
-> ****  
-> No se pudo implementar colores y shaders correctamente. En la branch `shaders-colores` se puede revisar el último avance.
+## Modelación de sistemas multiagentes con gráficas computacionales (Gpo 301)
+
+**Héctor Julián Zárate Ramírez | A01027743**  
+**Fernando Adrián Fuentes Martínez | A01028796**  
+
+**Gilberto Echeverría Furió**  
+**Octavio Navarro Hinojosa**  
+
+**29 de Noviembre de 2024**
+
+---
 
 # Proceso de instalación
 
@@ -32,10 +41,20 @@ npx vite
 # 1. Problema y propuesta de solución
 
 ## Problema:
-El objetivo de la simulación es modelar el tráfico en una ciudad, considerando carreteras, semáforos, destinos y obstáculos. El problema radica en gestionar eficientemente el flujo vehicular para evitar congestiones y mejorar la movilidad.
+El tráfico en las ciudades es uno de los mayores desafíos de la vida moderna, es complejo porque depende de muchos factores, como la cantidad de vehículos en circulación, el diseño de las carreteras, el funcionamiento de los semáforos y la aparición de imprevistos, como accidentes o bloqueos.
+
+## Objetivo:
+La idea detrás de esta simulación es recrear cómo funciona el tráfico en una ciudad dentro de un entorno controlado. El propósito es encontrar formas de manejar el flujo vehicular de manera más eficiente, reduciendo las congestiones, logrando que los vehículos lleguen a su destino lo más rápido posible y analizando cómo diferentes configuraciones pueden influir en la movilidad general.
 
 ## Propuesta de solución:
-La solución consiste en diseñar una simulación en la que agentes (`Car`, `Traffic_Light`, `Destination`, `Road` y `Obstacle`) interactúan dentro de un grid, siguiendo reglas predefinidas como semáforos que cambian de estado y vehículos que buscan el camino más corto hacia su destino.
+Para abordar este problema, proponemos crear una simulación donde diversos elementos interactúan entre sí dentro de una cuadrícula (grid). Los elementos principales incluyen:
+- **Vehículos**: Se moverán por la cuadrícula siguiendo rutas óptimas hacia sus destinos, calculadas con el algoritmo A*.
+- **Semáforos**: Regularán el paso de los vehículos alternando entre luz verde y roja según tiempos preestablecidos.
+- **Destinos**: Serán los puntos a los que los vehículos intentarán llegar.
+- **Carreteras**: Espacios por donde los vehículos pueden transitar.
+- **Obstáculos**: Elementos que bloquean el paso (edificios).
+
+En esta simulación, cada elemento tendrá un conjunto de reglas que determinará su comportamiento. Por ejemplo, los vehículos seguirán el camino más corto hacia su destino, respetando los semáforos y evitando colisiones con otros vehículos u obstáculos. Los semáforos, por su parte, gestionarán el flujo vehicular en las intersecciones, permitiendo el paso alternado en diferentes direcciones.
 
 ---
 
@@ -103,20 +122,20 @@ La solución consiste en diseñar una simulación en la que agentes (`Car`, `Tra
 
 # 4. Características del ambiente
 
-- **No determinístico**:
-  - Las rutas de los coches se recalculan dinámicamente utilizando el algoritmo A*. Además, los semáforos cambian de estado siguiendo intervalos predefinidos, lo que introduce incertidumbre en el flujo vehicular.
+- **No determinístico**:  
+  Las rutas de los coches se recalculan dinámicamente utilizando el algoritmo A*. Además, los semáforos cambian de estado siguiendo intervalos predefinidos, lo que introduce incertidumbre en el flujo vehicular.
 
-- **Accesible**:
-  - El ambiente es parcialmente accesible porque los coches solo perciben celdas adyacentes en su entorno inmediato. Esto incluye información sobre carreteras, semáforos, obstáculos y otros coches dentro de esa vecindad limitada.
+- **Accesible**:  
+  El ambiente es parcialmente accesible porque los coches solo perciben celdas adyacentes en su entorno inmediato. Esto incluye información sobre carreteras, semáforos, obstáculos y otros coches dentro de esa vecindad limitada.
 
-- **No episódico**:
-  - Las acciones actuales de los agentes, como elegir una ruta o esperar en un semáforo, afectan estados futuros. Por ejemplo, tomar un desvío puede evitar tráfico más adelante, pero también podría retrasar la llegada al destino.
+- **No episódico**:  
+  Las acciones actuales de los agentes, como elegir una ruta o esperar en un semáforo, afectan estados futuros. Por ejemplo, tomar un desvío puede evitar tráfico más adelante, pero también podría retrasar la llegada al destino.
 
-- **Dinámico**:
-  - El ambiente cambia constantemente. Los coches se mueven hacia sus destinos, los semáforos alternan entre verde y rojo, y la presencia de coches en diferentes celdas puede generar bloqueos o afectar las rutas disponibles.
+- **Dinámico**:  
+  El ambiente cambia constantemente. Los coches se mueven hacia sus destinos, los semáforos alternan entre verde y rojo, y la presencia de coches en diferentes celdas puede generar bloqueos o afectar las rutas disponibles.
 
-- **Discreto**:
-  - El entorno está modelado como un grid de celdas, donde cada celda puede contener un agente (carro, semáforo, destino, obstáculo o carretera) y los agentes solo se mueven entre celdas definidas.
+- **Discreto**:  
+  El entorno está modelado como un grid de celdas, donde cada celda puede contener un agente (carro, semáforo, destino, obstáculo o carretera) y los agentes solo se mueven entre celdas definidas.
 
 ---
 
@@ -137,3 +156,9 @@ Una de las fortalezas del modelo es que los coches pueden encontrar rutas eficie
 Aunque hay ciertos detalles que podrían volver más realista o eficiente la simulación, en este reto los vehículos solo ven las celdas que están a su alrededor inmediato. Si pudieran "ver" más lejos, podrían anticipar problemas y tomar mejores decisiones.
 
 En general, esta simulación podría ser una buena herramienta para planificar y mejorar el transporte en las ciudades.
+
+---
+
+# Link del repositorio:
+[Modelación Multiagentes - GitHub](https://github.com/HJZR2004/ModelacionMultiagentes.git)
+
