@@ -3,7 +3,6 @@ from mesa.time import RandomActivation
 from mesa.space import MultiGrid
 from agent import Car, Destination, Obstacle, Road, Traffic_Light
 import json
-import requests
 
 
 class CityModel(Model):
@@ -15,9 +14,6 @@ class CityModel(Model):
 
         self.traffic_lights = []
         self.graph = []
-
-        self.current = 0
-        self.arrived = 0
 
         dataDictionary = json.load(open("city_files/mapDictionary.json"))
         lines = open("city_files/2024_base.txt").readlines()
@@ -91,30 +87,7 @@ class CityModel(Model):
         if self.schedule.steps % 10 == 0:
             self.CreateCars()
 
-        """
-        if self.schedule.steps % 5 == 0:
-            url = "http://10.49.12.55:5000/api/"
-            endpoint = "validate_attempt"
-
-            data = {
-                "year" : 2024,
-                "classroom" : 301,
-                "name" : "Fernando y Juli",
-                "total": current,
-                "arrived": arrived 
-            }
-
-            headers = {
-                "Content-Type": "application/json"
-            }
-
-            response = requests.post(url+endpoint, data=json.dumps(data), headers=headers)
-
-            print("Request " + "successful" if response.status_code == 200 else "failed", "Status code:", response.status_code)
-            print("Response:", response.json())
-        """
         self.schedule.step()
-        
 
     def CreateCars(self):
         spawnPoint = [(0, 0), (0, self.height - 1), (self.width - 1, 0), (self.width - 1, self.height - 1)]
@@ -130,7 +103,6 @@ class CityModel(Model):
             new_car = Car(self.next_id(), self, self.random.choice(destination_pos))
             self.grid.place_agent(new_car, spawn)
             self.schedule.add(new_car)
-            self.current += 1
 
     def Roads(self, road):
         NeighborRoads = []
