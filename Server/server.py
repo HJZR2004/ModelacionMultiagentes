@@ -176,25 +176,34 @@ def getTrafficLights():
 @app.route('/getRoads', methods=['GET'])
 @cross_origin()
 def getRoads():
-    global city
+    global cityModel
 
-    if city is None:
+    if cityModel is None:
         return jsonify({"message": "Model not initialized"}), 400
 
     if request.method == 'GET':
         try:
-            # Get the positions of the obstacles and return them to WebGL in JSON.json.t.
-            # Same as before, the positions are sent as a list of dictionaries, where each dictionary has the id and position of an obstacle.
-            roadPosition = [
-                {"id": str(agent.unique_id), "x": x, "y": 0.5, "z": z}
-                for agents, (x, z) in city.grid.coord_iter()
-                for agent in agents if isinstance(agent, Road)
-            ]
+            print("Fetching road positions...")
 
-            return jsonify({'positions': roadPosition})
+            road_positions = []
+            for cell in cityModel.grid.coord_iter():
+                cell_agents, (x, z) = cell
+                for agent in cell_agents:
+                    if isinstance(agent, Road):
+                        print(f"Found road {agent.unique_id} at ({x}, {z})")
+                        road_positions.append({
+                            "id": str(agent.unique_id),
+                            "x": x,
+                            "y": 0.5,  # Altura fija para representación 3D
+                            "z": z
+                        })
+
+            print(f"Returning road positions: {road_positions}")
+            return jsonify({'positions': road_positions})
+
         except Exception as e:
-            print(e)
-            return jsonify({"message": "Error with obstacle positions"}), 500
+            print(f"Error fetching road positions: {e}")
+            return jsonify({"message": f"Error with road positions: {str(e)}"}), 500
 
 
 @app.route('/getDestination', methods=['GET'])

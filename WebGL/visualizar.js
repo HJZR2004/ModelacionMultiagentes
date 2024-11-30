@@ -9,6 +9,10 @@ import roadObj from './scripts/obj/road.obj?raw';
 import carObj from './scripts/obj/carcacha.obj?raw';
 import destinationObj from './scripts/obj/destination.obj?raw';
 
+//import vsGLSL from './shaders/vertex.glsl';
+//import fsGLSL from './shaders/fragment.glsl';
+
+
 //The script to make json files from obj files
 import { loadObj } from './scripts/js/loadOBJ.js';
 
@@ -80,7 +84,7 @@ class Building {
 
 //Define the road class
 class Road {
-  constructor(id, position=[0,0,0], rotation=[0,0,0],scale=[1,1,1]){
+  constructor(id, position=[0,0,0], rotation=[0,0,0],scale=[2,2,2]){
     this.id = id;
     this.position = position;
     this.rotation = rotation;
@@ -91,7 +95,7 @@ class Road {
 
 //Define the car class
 class Car {
-  constructor(id, position=[0,0,0], rotation=[0,0,0],scale=[0.29,0.29,0.29]){
+  constructor(id, position=[0,0,0], rotation=[0,0,0],scale=[0.4,0.4,0.4]){
     this.id = id;
     this.position = position;
     this.rotation = rotation;
