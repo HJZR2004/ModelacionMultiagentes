@@ -1,5 +1,7 @@
 # ModelacionMultiagentes
 
+> ****  
+> No se pudo implementar colores y shaders correctamente. En la branch `shaders-colores` se puede revisar el último avance.
 
 # Proceso de instalación
 
