@@ -1,5 +1,7 @@
 # Reporte del reto
 
+> NOTE: No se pudo arreglar shaders y colors, la branch shaders-colors muestra los ultimos avances.
+
 ## Modelación de sistemas multiagentes con gráficas computacionales (Gpo 301)
 
 **Héctor Julián Zárate Ramírez | A01027743**  
