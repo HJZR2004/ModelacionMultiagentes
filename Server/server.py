@@ -176,25 +176,34 @@ def getTrafficLights():
 @app.route('/getRoads', methods=['GET'])
 @cross_origin()
 def getRoads():
-    global city
+    global cityModel
 
-    if city is None:
+    if cityModel is None:
         return jsonify({"message": "Model not initialized"}), 400
 
     if request.method == 'GET':
         try:
-            # Get the positions of the obstacles and return them to WebGL in JSON.json.t.
-            # Same as before, the positions are sent as a list of dictionaries, where each dictionary has the id and position of an obstacle.
-            roadPosition = [
-                {"id": str(agent.unique_id), "x": x, "y": 0.5, "z": z}
-                for agents, (x, z) in city.grid.coord_iter()
-                for agent in agents if isinstance(agent, Road)
-            ]
+            print("Fetching road positions...")
 
-            return jsonify({'positions': roadPosition})
+            road_positions = []
+            for cell in cityModel.grid.coord_iter():
+                cell_agents, (x, z) = cell
+                for agent in cell_agents:
+                    if isinstance(agent, Road):
+                        print(f"Found road {agent.unique_id} at ({x}, {z})")
+                        road_positions.append({
+                            "id": str(agent.unique_id),
+                            "x": x,
+                            "y": 0.5,  # Altura fija para representación 3D
+                            "z": z
+                        })
+
+            print(f"Returning road positions: {road_positions}")
+            return jsonify({'positions': road_positions})
+
         except Exception as e:
-            print(e)
-            return jsonify({"message": "Error with obstacle positions"}), 500
+            print(f"Error fetching road positions: {e}")
+            return jsonify({"message": f"Error with road positions: {str(e)}"}), 500
 
 
 @app.route('/getDestination', methods=['GET'])
@@ -225,17 +234,29 @@ def getDestination():
 
 @app.route('/update', methods=['GET'])
 @cross_origin()
-def updateModel():
-    global currentStep, city
+def update_model():
+    """
+    Actualiza el estado del modelo CityModel avanzando un paso y devuelve el número de paso actual.
+    """
+    global currentStep, cityModel
+
     if request.method == 'GET':
         try:
-            # Update the model and return a message to WebGL saying that the model was updated successfully
-            city.step()
+            # Asegúrate de que el modelo está inicializado
+            if cityModel is None:
+                return jsonify({"message": "Model is not initialized. Please initialize the model first."}), 400
+
+            # Avanza un paso en el modelo
+            cityModel.step()
             currentStep += 1
-            return jsonify({'message': f'Model updated to step {currentStep}.', 'currentStep': currentStep})
+
+            # Retorna un mensaje de éxito con el paso actual
+            return jsonify({'message': f'Model updated to step {currentStep}.', 'currentStep': currentStep}), 200
         except Exception as e:
-            print(e)
-            return jsonify({"message": "Error during step."}), 500
+            # Manejo de errores durante la actualización
+            print(f"Error during model update: {e}")
+            return jsonify({"message": "Error during step.", "error": str(e)}), 500
+
         
 
 @app.route('/step', methods=['GET'])
