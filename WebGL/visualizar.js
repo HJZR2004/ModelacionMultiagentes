@@ -9,41 +9,43 @@ import roadObj from './scripts/obj/road.obj?raw';
 import carObj from './scripts/obj/carcacha.obj?raw';
 import destinationObj from './scripts/obj/destination.obj?raw';
 
-//import vsGLSL from './shaders/vertex.glsl';
-//import fsGLSL from './shaders/fragment.glsl';
+import { v3, m4 } from "./scripts/js/library_3d.js";
+
+import vsGLSL from './shaders/vertex.glsl?raw';
+import fsGLSL from './shaders/fragment.glsl?raw';
 
 
 //The script to make json files from obj files
 import { loadObj } from './scripts/js/loadOBJ.js';
 
-// Define the vertex shader code, using GLSL 3.00
-const vsGLSL = `#version 300 es
-in vec4 a_position;
-in vec4 a_color;
+// // Define the vertex shader code, using GLSL 3.00
+// const vsGLSL = `#version 300 es
+// in vec4 a_position;
+// in vec4 a_color;
 
-uniform mat4 u_transforms;
-uniform mat4 u_matrix;
+// uniform mat4 u_transforms;
+// uniform mat4 u_matrix;
 
-out vec4 v_color;
+// out vec4 v_color;
 
-void main() {
-gl_Position = u_matrix * a_position;
-v_color = a_color;
-}
-`;
+// void main() {
+// gl_Position = u_matrix * a_position;
+// v_color = a_color;
+// }
+// `;
 
-// Define the fragment shader code, using GLSL 3.00
-const fsGLSL = `#version 300 es
-precision highp float;
+// // Define the fragment shader code, using GLSL 3.00
+// const fsGLSL = `#version 300 es
+// precision highp float;
 
-in vec4 v_color;
+// in vec4 v_color;
 
-out vec4 outColor;
+// out vec4 outColor;
 
-void main() {
-outColor = v_color;
-}
-`;
+// void main() {
+// outColor = v_color;
+// }
+// `;
 
 
 // Define the agent server URI
@@ -70,6 +72,28 @@ const data = {
   width: 100,
   height: 100
 };
+const settings = {
+  // Speed in degrees
+  rotationSpeed: {
+    x: 0,
+    y: 30,
+    z: 0,
+  },
+  cameraPosition: {
+    x: 0,
+    y: 40,
+    z: 0.01,
+  },
+  lightPosition: {
+    x: 20,
+    y: 30,
+    z: 20,
+  },
+  ambientColor: [0.5, 0.5, 0.5, 1.0],
+  diffuseColor: [0.5, 0.5, 0.5, 1.0],
+  specularColor: [0.5, 0.5, 0.5, 1.0],
+};
+
 
 //Define the building class
 class Building {
@@ -79,6 +103,8 @@ class Building {
     this.rotation = rotation;
     this.scale = scale;
     this.color = [Math.random(), Math.random(), Math.random(), 1];
+    this.shininess= 100;
+    this.matrix=twgl.m4.identity();
   }
 }
 
@@ -90,6 +116,8 @@ class Road {
     this.rotation = rotation;
     this.scale = scale;
     this.color = [0,0,0, 1];
+    this.shininess= 100;
+    this.matrix=twgl.m4.identity();
   }
 }
 
@@ -101,6 +129,8 @@ class Car {
     this.rotation = rotation;
     this.scale = scale;
     this.color = [Math.random(), Math.random(), Math.random(), 1];
+    this.shininess= 100;
+    this.matrix=twgl.m4.identity();
   }
 }
 
@@ -112,6 +142,9 @@ class Destination {
     this.rotation = rotation;
     this.scale = scale;
     this.color = [0,0,1, 1];
+    this.shininess= 100;
+    this.matrix=twgl.m4.identity();
+
   }
 }
 
@@ -241,42 +274,37 @@ async function getDestination() {
 /*
  * Retrieves the current positions of all agents from the agent server.
  */
-async function getCar() {
-  try {
+async function getCar() 
+{
+  try{
     // Send a GET request to the agent server to retrieve the agent positions
     let response = await fetch(agent_server_uri + "getAgents") 
 
     // Check if the response was successful
-    if(response.ok){
-      // Parse the response as JSON
-      let result = await response.json()
+    if(!response.ok){
+        throw new Error("Response is not ok");}
 
-      // Log the agent positions
-      console.log(result.positions)
+        let result = await response.json()
+        console.log(result.positions)
+        
 
-      // Check if the agents array is empty
-      if(agents_array.length == 0){
-        // Create new agents and add them to the agents array
-        for (const car of result.positions) {
-          const newCar = new Car(car.id, [car.x, car.y, car.z])
-          agents_array.push(newCar)
-        }
-        // Log the agents array
-        console.log("Agents:", agents_array)
-
-      } else {
-        // Update existing agents
-        for (let i = 0; i < result.positions.length; i++) {
-          agents_array[i].position = [result.positions[i].x, result.positions[i].y, result.positions[i].z];
-        }
+        // Check if the agents array is empty
+        for(const agent of result.positions){
+          let currentAgent = agents_array.find(a => a.id === agent.id);
+          if(currentAgent){
+            currentAgent.position = [agent.x, agent.y, agent.z];
+          }
+          else{
+            const newAgent = new Car(agent.id, [agent.x, agent.y, agent.z])
+            agents_array.push(newAgent)
+          }
       }
-    }
 
   } catch (error) {
     // Log any errors that occur during the request
     console.log(error) 
-  }
-}
+  }}
+
 
 /*
  * Retrieves the current positions of all obstacles from the agent server.
@@ -350,8 +378,27 @@ async function drawScene(gl, programInfo, buildingVao, buildingBufferInfo, roadV
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(programInfo.program);
 
-    // Configurar la matriz de vista-proyección
+    let v3_lightPosition = v3.create(settings.lightPosition.x,
+      settings.lightPosition.y,
+      settings.lightPosition.z);
+  
+    let v3_cameraPosition = v3.create(settings.cameraPosition.x,
+      settings.cameraPosition.y,
+      settings.cameraPosition.z);
+  
+  
+  
+    let globalUniforms = {
+      u_viewWorldPosition: v3_cameraPosition,
+      u_lightWorldPosition: v3_lightPosition,
+      u_ambientLight: settings.ambientColor,
+      u_diffuseLight: settings.diffuseColor,
+      u_specularLight: settings.specularColor,
+    };
+    twgl.setUniforms(programInfo, globalUniforms);
+
     const viewProjectionMatrix = setupWorldView(gl);
+
 
     const distance = 1; //Sets the distance from rendering
 
@@ -527,7 +574,7 @@ function setupWorldView(gl) {
     const up = [0, 1, 0];
 
     // Calculate the camera position
-    const camPos = twgl.v3.create(cameraPosition.x + data.width, cameraPosition.y, cameraPosition.z+data.height)
+    const camPos = twgl.v3.create(settings.cameraPosition.x + data.width, settings.cameraPosition.y, settings.cameraPosition.z+data.height)
 
     // Create the camera matrix
     const cameraMatrix = twgl.m4.lookAt(camPos, target, up);
@@ -574,192 +621,5 @@ function setupUI() {
         });
 }
 
-function generateData(size) {
-    let arrays =
-    {
-        a_position: {
-                numComponents: 3,
-                data: [
-                  // Front Face
-                  -0.5, -0.5,  0.5,
-                  0.5, -0.5,  0.5,
-                  0.5,  0.5,  0.5,
-                 -0.5,  0.5,  0.5,
-
-                 // Back face
-                 -0.5, -0.5, -0.5,
-                 -0.5,  0.5, -0.5,
-                  0.5,  0.5, -0.5,
-                  0.5, -0.5, -0.5,
-
-                 // Top face
-                 -0.5,  0.5, -0.5,
-                 -0.5,  0.5,  0.5,
-                  0.5,  0.5,  0.5,
-                  0.5,  0.5, -0.5,
-
-                 // Bottom face
-                 -0.5, -0.5, -0.5,
-                  0.5, -0.5, -0.5,
-                  0.5, -0.5,  0.5,
-                 -0.5, -0.5,  0.5,
-
-                 // Right face
-                  0.5, -0.5, -0.5,
-                  0.5,  0.5, -0.5,
-                  0.5,  0.5,  0.5,
-                  0.5, -0.5,  0.5,
-
-                 // Left face
-                 -0.5, -0.5, -0.5,
-                 -0.5, -0.5,  0.5,
-                 -0.5,  0.5,  0.5,
-                 -0.5,  0.5, -0.5
-                ].map(e => size * e)
-            },
-        a_color: {
-                numComponents: 4,
-                data: [
-                  // Front face
-                    1, 0, 0, 1, // v_1
-                    1, 0, 0, 1, // v_1
-                    1, 0, 0, 1, // v_1
-                    1, 0, 0, 1, // v_1
-                  // Back Face
-                    0, 1, 0, 1, // v_2
-                    0, 1, 0, 1, // v_2
-                    0, 1, 0, 1, // v_2
-                    0, 1, 0, 1, // v_2
-                  // Top Face
-                    0, 0, 1, 1, // v_3
-                    0, 0, 1, 1, // v_3
-                    0, 0, 1, 1, // v_3
-                    0, 0, 1, 1, // v_3
-                  // Bottom Face
-                    1, 1, 0, 1, // v_4
-                    1, 1, 0, 1, // v_4
-                    1, 1, 0, 1, // v_4
-                    1, 1, 0, 1, // v_4
-                  // Right Face
-                    0, 1, 1, 1, // v_5
-                    0, 1, 1, 1, // v_5
-                    0, 1, 1, 1, // v_5
-                    0, 1, 1, 1, // v_5
-                  // Left Face
-                    1, 0, 1, 1, // v_6
-                    1, 0, 1, 1, // v_6
-                    1, 0, 1, 1, // v_6
-                    1, 0, 1, 1, // v_6
-                ]
-            },
-        indices: {
-                numComponents: 3,
-                data: [
-                  0, 1, 2,      0, 2, 3,    // Front face
-                  4, 5, 6,      4, 6, 7,    // Back face
-                  8, 9, 10,     8, 10, 11,  // Top face
-                  12, 13, 14,   12, 14, 15, // Bottom face
-                  16, 17, 18,   16, 18, 19, // Right face
-                  20, 21, 22,   20, 22, 23  // Left face
-                ]
-            }
-    };
-
-    return arrays;
-}
-
-function generateObstacleData(size){
-
-    let arrays =
-    {
-        a_position: {
-                numComponents: 3,
-                data: [
-                  // Front Face
-                  -0.5, -0.5,  0.5,
-                  0.5, -0.5,  0.5,
-                  0.5,  0.5,  0.5,
-                 -0.5,  0.5,  0.5,
-
-                 // Back face
-                 -0.5, -0.5, -0.5,
-                 -0.5,  0.5, -0.5,
-                  0.5,  0.5, -0.5,
-                  0.5, -0.5, -0.5,
-
-                 // Top face
-                 -0.5,  0.5, -0.5,
-                 -0.5,  0.5,  0.5,
-                  0.5,  0.5,  0.5,
-                  0.5,  0.5, -0.5,
-
-                 // Bottom face
-                 -0.5, -0.5, -0.5,
-                  0.5, -0.5, -0.5,
-                  0.5, -0.5,  0.5,
-                 -0.5, -0.5,  0.5,
-
-                 // Right face
-                  0.5, -0.5, -0.5,
-                  0.5,  0.5, -0.5,
-                  0.5,  0.5,  0.5,
-                  0.5, -0.5,  0.5,
-
-                 // Left face
-                 -0.5, -0.5, -0.5,
-                 -0.5, -0.5,  0.5,
-                 -0.5,  0.5,  0.5,
-                 -0.5,  0.5, -0.5
-                ].map(e => size * e)
-            },
-        a_color: {
-                numComponents: 4,
-                data: [
-                  // Front face
-                    0, 0, 0, 1, // v_1
-                    0, 0, 0, 1, // v_1
-                    0, 0, 0, 1, // v_1
-                    0, 0, 0, 1, // v_1
-                  // Back Face
-                    0.333, 0.333, 0.333, 1, // v_2
-                    0.333, 0.333, 0.333, 1, // v_2
-                    0.333, 0.333, 0.333, 1, // v_2
-                    0.333, 0.333, 0.333, 1, // v_2
-                  // Top Face
-                    0.5, 0.5, 0.5, 1, // v_3
-                    0.5, 0.5, 0.5, 1, // v_3
-                    0.5, 0.5, 0.5, 1, // v_3
-                    0.5, 0.5, 0.5, 1, // v_3
-                  // Bottom Face
-                    0.666, 0.666, 0.666, 1, // v_4
-                    0.666, 0.666, 0.666, 1, // v_4
-                    0.666, 0.666, 0.666, 1, // v_4
-                    0.666, 0.666, 0.666, 1, // v_4
-                  // Right Face
-                    0.833, 0.833, 0.833, 1, // v_5
-                    0.833, 0.833, 0.833, 1, // v_5
-                    0.833, 0.833, 0.833, 1, // v_5
-                    0.833, 0.833, 0.833, 1, // v_5
-                  // Left Face
-                    1, 1, 1, 1, // v_6
-                    1, 1, 1, 1, // v_6
-                    1, 1, 1, 1, // v_6
-                    1, 1, 1, 1, // v_6
-                ]
-            },
-        indices: {
-                numComponents: 3,
-                data: [
-                  0, 1, 2,      0, 2, 3,    // Front face
-                  4, 5, 6,      4, 6, 7,    // Back face
-                  8, 9, 10,     8, 10, 11,  // Top face
-                  12, 13, 14,   12, 14, 15, // Bottom face
-                  16, 17, 18,   16, 18, 19, // Right face
-                  20, 21, 22,   20, 22, 23  // Left face
-                ]
-            }
-    };
-    return arrays;
-}
 
 main()
